@@ -26,15 +26,15 @@ namespace LL_Scraper
 		private async void btnProcess_Click(object sender, EventArgs e)
 		{
 			Cursor = Cursors.WaitCursor;
-			var fullQuestions = new List<FullQuestions>();
+			var fullQuestions = new List<FullQuestion>();
 			foreach (var url in GamesToProcess)
 			{
-				fullQuestions.AddRange(await GetFullQuestions(url));
+				fullQuestions.AddRange(await LLDataScraper.GetSingleMatch(url));
 			}
 
 			foreach (var fullQuestion in fullQuestions)
 			{
-				tbFormattedText.AppendText($"{fullQuestion.category}\t{fullQuestion.question}\t{fullQuestion.answer}\r\n");
+				tbFormattedText.AppendText($"{fullQuestion.category}\t{fullQuestion.question}\t{fullQuestion.percentCorrect}\t{fullQuestion.answer}\r\n");
 			}
 			Cursor = Cursors.Default;
 		}
@@ -79,73 +79,11 @@ namespace LL_Scraper
 
 		private async Task AddSingleGame(string URL)
 		{
-			bool isValid = await isValidWebPage(URL);
+			bool isValid = await LLDataScraper.isValidWebPage(URL);
 			if (isValid && !listGamesToProcess.Items.Contains(URL))
 			{
 				GamesToProcess.Add(URL);
 			}
-		}
-
-		private async Task<bool> isValidWebPage(string url)
-		{
-			try
-			{
-				using HttpClient client = new HttpClient();
-				HttpResponseMessage response = await client.GetAsync(url);
-
-				// Consider 200-299 as valid web page responses
-				return response.IsSuccessStatusCode;
-			}
-			catch
-			{
-				return false; // Invalid URL or network error
-			}
-		}
-
-		private async Task<HtmlNodeCollection> GetElementsByClass(string url, string className)
-		{
-			using HttpClient client = new HttpClient();
-			string html = await client.GetStringAsync(url);
-
-			HtmlAgilityPack.HtmlDocument doc = new HtmlAgilityPack.HtmlDocument();
-			doc.LoadHtml(html);
-
-			return doc.DocumentNode.SelectNodes($"//*[@class='{className}']");
-		}
-
-		private async Task<List<FullQuestions>> GetFullQuestions(string url)
-		{
-			var fullQuestions = new List<FullQuestions>();
-
-			var questionsHTML = await GetElementsByClass(url, "ind-Q20 dont-break-out");
-			var answersHTML = await GetElementsByClass(url, "answer3");
-
-			var questions = new List<string>();
-			var answers = new List<string>();
-			var categories = new List<string>();
-
-			foreach (var questionHTML in questionsHTML)
-			{
-				var inner = questionHTML.InnerHtml;
-				var splitQuestion = inner.Trim().Split(" - ");
-				var category = HttpUtility.HtmlDecode(splitQuestion[0].Split("</span>")[1].Trim().Replace("<i>", "").Replace("</i>", ""));
-				var question = HttpUtility.HtmlDecode(splitQuestion[1].Trim().Replace("<i>", "").Replace("</i>", ""));
-
-				categories.Add(category);
-				questions.Add(question);
-			}
-
-			foreach (var answer in answersHTML)
-			{
-				answers.Add(HttpUtility.HtmlDecode(answer.InnerHtml.Split("px;'>")[1].Split("</div>")[0].Trim()));
-			}
-
-			for (int i = 0; i < questions.Count; i++)
-			{
-				fullQuestions.Add(new FullQuestions(questions[i], answers[i], categories[i]));
-			}
-
-			return fullQuestions;
 		}
 
 		private void btnClearAddedURLs_Click(object sender, EventArgs e)
@@ -179,20 +117,6 @@ namespace LL_Scraper
 			foreach (var url in sorted)
 			{
 				GamesToProcess.Add(url);
-			}
-		}
-
-		private struct FullQuestions
-		{
-			public string question;
-			public string answer;
-			public string category;
-
-			public FullQuestions(string q, string a, string c)
-			{
-				question = q;
-				answer = a;
-				category = c;
 			}
 		}
 
